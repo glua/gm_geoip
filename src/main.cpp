@@ -7,9 +7,9 @@
 
 using namespace GarrysMod;
 
-bool grab_table_member(lua_State *state, const char *key, MMDB_entry_s *entry, const char *entry_key_1, const char *entry_key_2) {
+bool grab_table_member(lua_State *state, const char *key, MMDB_entry_s *entry, const char *entry_key_1, const char *entry_key_2, const char *entry_key_3) {
 	MMDB_entry_data_s entry_data;
-	int status = MMDB_get_value(entry, &entry_data, entry_key_1, entry_key_2, NULL);
+	int status = MMDB_get_value(entry, &entry_data, entry_key_1, entry_key_2, entry_key_3, NULL);
 
 	if (status != MMDB_SUCCESS) {
 		return false;
@@ -97,8 +97,14 @@ int GeoIPDB_GetIPInfo(lua_State *state) {
 
 	LUA->CreateTable();
 
-	grab_table_member(state, "country", &result.entry, "country", "iso_code");
-	grab_table_member(state, "accuracy_radius", &result.entry, "location", "accuracy_radius");
+	grab_table_member(state, "accuracy_radius", &result.entry, "location", "accuracy_radius", NULL);
+	grab_table_member(state, "continent", &result.entry, "continent", "code", NULL);
+	grab_table_member(state, "country", &result.entry, "country", "iso_code", NULL);
+	grab_table_member(state, "state", &result.entry, "subdivisions", "0", "iso_code");
+	grab_table_member(state, "city", &result.entry, "city", "names", "en");
+	grab_table_member(state, "latitude", &result.entry, "location", "latitude", NULL);
+	grab_table_member(state, "longitude", &result.entry, "location", "longitude", NULL);
+	grab_table_member(state, "time_zone", &result.entry, "location", "time_zone", NULL);
 
 	return 1;
 }
