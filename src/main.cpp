@@ -117,7 +117,7 @@ int GeoIPDB_tostring(lua_State *state) {
 	return 1;
 }
 
-int GeoIPDB_gc(lua_State *state) {
+int GeoIPDB_close(lua_State *state) {
 	Lua::UserData *ud = (Lua::UserData *)LUA->GetUserdata(1);
 	MMDB_s *db = (MMDB_s *)ud->data;
 
@@ -141,6 +141,9 @@ GMOD_MODULE_OPEN() {
 		LUA->CreateTable();
 			LUA->PushCFunction(GeoIPDB_GetIPInfo);
 			LUA->SetField(-2, "GetIPInfo");
+
+			LUA->PushCFunction(GeoIPDB_close);
+			LUA->SetField(-2, "Close");
 		LUA->SetField(-2, "__index");
 
 		LUA->PushString("GeoIPDB");
@@ -149,7 +152,7 @@ GMOD_MODULE_OPEN() {
 		LUA->PushCFunction(GeoIPDB_tostring);
 		LUA->SetField(-2, "__tostring");
 
-		LUA->PushCFunction(GeoIPDB_gc);
+		LUA->PushCFunction(GeoIPDB_close);
 		LUA->SetField(-2, "__gc");
 	LUA->Pop();
 
