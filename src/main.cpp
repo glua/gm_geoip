@@ -2,9 +2,10 @@
 #include <string>
 #include "GarrysMod/Lua/Interface.h"
 
-using namespace GarrysMod;
+#define META_NAME "GeoIPDB"
+#define META_ID 242
 
-MMDB_s mmdb;
+using namespace GarrysMod;
 
 bool grab_table_member(lua_State *state, const char *key, MMDB_entry_s *entry, const char *entry_key_1, const char *entry_key_2) {
 	MMDB_entry_data_s entry_data;
@@ -41,20 +42,40 @@ bool grab_table_member(lua_State *state, const char *key, MMDB_entry_s *entry, c
 int geoip_OpenDB(lua_State *state) {
 	LUA->CheckType(1, Lua::Type::STRING); // path relative to GarrysMod/garrysmod/
 
-	const char* path = ("garrysmod/" + std::string(LUA->GetString(1))).c_str();
+	MMDB_s *mmdb = new MMDB_s;
 
-	int status = MMDB_open(path, MMDB_MODE_MMAP, &mmdb);
+	std::string path = "garrysmod/" + std::string(LUA->GetString(1));
 
-	LUA->PushBool(status == MMDB_SUCCESS);
+	int status = MMDB_open(path.c_str(), MMDB_MODE_MMAP, mmdb);
+
+	if (status != MMDB_SUCCESS) {
+		LUA->ThrowError("gm_geoip: Error opening database.");
+	}
+
+	Lua::UserData *userdata = (Lua::UserData *)LUA->NewUserdata(sizeof(Lua::UserData));
+	userdata->data = mmdb;
+	userdata->type = META_ID;
+
+	LUA->CreateMetaTableType(META_NAME, META_ID);
+	LUA->SetMetaTable(-2);
 
 	return 1;
 }
 
-int geoip_GetIPInfo(lua_State *state) {
-	LUA->CheckType(1, Lua::Type::STRING); // ip address
+int GeoIPDB_GetIPInfo(lua_State *state) {
+	LUA->CheckType(1, META_ID);
+	LUA->CheckType(2, Lua::Type::STRING); // ip address
+
+	Lua::UserData *ud = (Lua::UserData *)LUA->GetUserdata(1);
+	MMDB_s *db = (MMDB_s *)ud->data;
+
+	if (!db) {
+		LUA->ThrowError("Attempt to call 'GetIPInfo' on bad GeoIPDB?");
+		return 0;
+	}
 
 	int gai_error, mmdb_error;
-	MMDB_lookup_result_s result = MMDB_lookup_string(&mmdb, LUA->GetString(1), &gai_error, &mmdb_error);
+	MMDB_lookup_result_s result = MMDB_lookup_string(db, LUA->GetString(2), &gai_error, &mmdb_error);
 
 	if (gai_error != 0) {
 		LUA->PushBool(false);
@@ -82,22 +103,54 @@ int geoip_GetIPInfo(lua_State *state) {
 	return 1;
 }
 
+// todo: improve
+int GeoIPDB_tostring(lua_State *state) {
+	LUA->PushString("MMDB Instance");
+
+	return 1;
+}
+
+int GeoIPDB_gc(lua_State *state) {
+	Lua::UserData *ud = (Lua::UserData *)LUA->GetUserdata(1);
+	MMDB_s *db = (MMDB_s *)ud->data;
+
+	MMDB_close(db);
+	delete db;
+
+	ud->data = NULL;
+
+	return 0;
+}
+
 GMOD_MODULE_OPEN() {
 	LUA->PushSpecial(Lua::SPECIAL_GLOB);
 		LUA->CreateTable();
 			LUA->PushCFunction(geoip_OpenDB);
 			LUA->SetField(-2, "OpenDB");
-
-			LUA->PushCFunction(geoip_GetIPInfo);
-			LUA->SetField(-2, "GetIPInfo");
 		LUA->SetField(-2, "geoip");
+	LUA->Pop();
+
+	LUA->CreateMetaTableType(META_NAME, META_ID);
+		LUA->CreateTable();
+			LUA->PushCFunction(GeoIPDB_GetIPInfo);
+			LUA->SetField(-2, "GetIPInfo");
+		LUA->SetField(-2, "__index");
+
+		LUA->PushString("GeoIPDB");
+		LUA->SetField(-2, "__type");
+
+		LUA->PushCFunction(GeoIPDB_tostring);
+		LUA->SetField(-2, "__tostring");
+
+		LUA->PushCFunction(GeoIPDB_gc);
+		LUA->SetField(-2, "__gc");
 	LUA->Pop();
 
 	return 0;
 }
 
 GMOD_MODULE_CLOSE() {
-	MMDB_close(&mmdb);
+	// todo: close all open databases?
 
 	return 0;
 }
