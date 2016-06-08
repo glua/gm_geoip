@@ -102,6 +102,7 @@ int GeoIPDB_GetIPInfo(lua_State *state) {
 	grab_table_member(state, "country", &result.entry, "country", "iso_code", NULL);
 	grab_table_member(state, "state", &result.entry, "subdivisions", "0", "iso_code");
 	grab_table_member(state, "city", &result.entry, "city", "names", "en");
+	grab_table_member(state, "postal_code", &result.entry, "postal", "code", NULL);
 	grab_table_member(state, "latitude", &result.entry, "location", "latitude", NULL);
 	grab_table_member(state, "longitude", &result.entry, "location", "longitude", NULL);
 	grab_table_member(state, "time_zone", &result.entry, "location", "time_zone", NULL);
